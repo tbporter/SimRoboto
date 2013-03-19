@@ -7,27 +7,40 @@ public class Navigation : MonoBehaviour {
 	private float vert;
 	private IR IRLeftFront;
 	private IR IRRightFront;
-	private IR IRLeft;
-	private IR IRRight;
+	private IR IRSideFrontLeft;
+	private IR IRSideFrontRight;
+	private IR IRSideBackLeft;
+	private IR IRSideBackRight;
+	
 	// Use this for initialization
 	void Start () {
 		IRLeftFront = new IR(transform.FindChild("left_front_IR"));
 		IRRightFront = new IR(transform.FindChild("right_front_IR"));
-		IRLeft = new IR(transform.FindChild("left_IR"));
-		IRRight= new IR(transform.FindChild("right_IR"));
+		IRSideFrontLeft = new IR(transform.FindChild("left_side_front_IR"));
+		IRSideFrontRight= new IR(transform.FindChild("right_side_front_IR"));
+		IRSideBackLeft = new IR(transform.FindChild("left_side_back_IR"));
+		IRSideBackRight= new IR(transform.FindChild("right_side_back_IR"));
 		hori = 0;
 		vert = 0;
 	}
 	
 	void Update () {
 		//servoControl (5f,0f);
-		if(IRLeft.getDistance()<4){
-				servoControl (2f,.1f);
+		if(IRSideFrontLeft.getDistance()<4){
+			servoControl (2f,.1f);
 			print ("irLeft");
 		}
-		else if(IRRight.getDistance()<4){
+		else if(IRSideBackRight.getDistance()<4 && IRSideFrontRight.getDistance()<4){
+			float temp = IRSideFrontRight.getDistance ();
+			float temp2 = IRSideBackRight.getDistance ();
+			if(temp<temp2)
+			{
+			//if(true){
 				servoControl (.1f,2f);
-				print ("irReft");
+			}
+			else{
+				servoControl (2f,2f);
+			}
 		}
 		else{
 			print (IRRightFront.getDistance());
@@ -50,7 +63,8 @@ public class Navigation : MonoBehaviour {
 	}
 	
 	void servoControl(float left, float right){
-		
+		left = left*10;
+		right = right*10;
 		Transform childT = transform.FindChild ("left_front_wheel");
 		transform.gameObject.rigidbody.AddForceAtPosition(transform.forward * left,childT.position);
 		
