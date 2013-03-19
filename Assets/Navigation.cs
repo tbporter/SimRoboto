@@ -40,10 +40,16 @@ public class Navigation : MonoBehaviour {
 		hori = 0;
 		vert = 0;
 	}
-	
+	void Update(){
+		IRLeftFront.updateDistance();
+		IRRightFront.updateDistance();
+		IRSideFrontLeft.updateDistance();
+		IRSideFrontRight.updateDistance();
+		IRSideBackLeft.updateDistance();
+		IRSideBackRight.updateDistance();
+	}
 	void FixedUpdate () {
-		//Vector3 start = new Vector3(0,0,0);
-		Vector3 end = new Vector3(1,0,0);
+		
 		stateMachine ();
 	}
 	
@@ -90,9 +96,13 @@ public class Navigation : MonoBehaviour {
 			
 			switch(tempDir){
 			case dir.right:
+				IRLeftFront.debug (Color.red);
+				IRRightFront.debug (Color.red);
 				servoControl (1f,2f);
 				break;
 			case dir.left:
+				IRLeftFront.debug (Color.red);
+				IRRightFront.debug (Color.red);
 				servoControl (2f,1f);
 				break;
 			case dir.straight:
@@ -109,11 +119,16 @@ public class Navigation : MonoBehaviour {
 				curState= state.straight;
 				break;
 			}
-			if(curDir==dir.right)
+			if(curDir==dir.right){
+				IRSideBackRight.debug (Color.red);
+				IRSideFrontRight.debug (Color.red);
 				servoControl (.1f,2f);
-			else
+			}
+			else{
+				IRSideBackLeft.debug (Color.red);
+				IRSideFrontLeft.debug (Color.red);
 				servoControl (2f,.1f);
-
+			}
 			break;
 		}
 	}
@@ -122,59 +137,71 @@ public class Navigation : MonoBehaviour {
 	 * input: direction of IRs wanting to check
 	 * output: whether it is parallel*/
 	bool checkParallel(dir d){
-		const float PARALLEL_DIFF_MIN = 1f;
-		float temp;
-		float temp2;
+		const float PARALLEL_DIFF_MIN = .15f;
+		float front;
+		float back;
 		if(d == dir.right){
-			temp =IRSideFrontRight.getDistance ();
-			temp2 =IRSideBackRight.getDistance ();
+			front =IRSideFrontRight.getDistance ();
+			back =IRSideBackRight.getDistance ();
 		}
 		else{
-			temp =IRSideFrontLeft.getDistance ();
-			temp2 =IRSideBackLeft.getDistance ();
+			front =IRSideFrontLeft.getDistance ();
+			back =IRSideBackLeft.getDistance ();
 		}
-		if(temp+PARALLEL_DIFF_MIN<temp2){
+		if(front+PARALLEL_DIFF_MIN<back){
 			return false;
 		}
 			return true;
 	}
 	
 	dir checkStraight(){
-		const float STRAIGHT_DIFF_MIN = .5f;
-		
-		if(IRRightFront.getDistance()>999||IRLeftFront.getDistance()>999){
-			print("IRRight"+IRRightFront.getDistance());
-			print("IRLeft"+IRLeftFront.getDistance());
+		float STRAIGHT_DIFF_MIN = 0f;
+		const float TOO_CLOSE = 2f;
+		if(IRSideFrontRight.getDistance()>999||IRSideFrontLeft.getDistance()>999){
 			return dir.straight;
 		}
-		float diff= Mathf.Abs(IRRightFront.getDistance()-IRLeftFront.getDistance());
-		print (diff);
-		diff = diff *.015f;
+		float diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideFrontLeft.getDistance());
 		
-		if(IRSideFrontLeft.getDistance()>IRSideFrontRight.getDistance ()+STRAIGHT_DIFF_MIN){
-			servoControl (2f-diff,2f);
-			IRSideFrontRight.debug(1);
-			return dir.right;
+		//if the difference is too much, try to recenter
+		print(diff);
+		if(diff>1f){
+			diff = diff *.3f;
+			if(IRSideFrontLeft.getDistance()>IRSideFrontRight.getDistance())
+			{
+				if(!checkParallel(dir.right)){
+					servoControl (1f-diff,1f+diff);
+					IRSideFrontRight.debug (Color.red);
+					return dir.right;
+				}
+			}
+			if(IRSideFrontRight.getDistance()>IRSideFrontLeft.getDistance()&&!checkParallel(dir.left))
+			{
+				if(!checkParallel(dir.left)){
+					servoControl (1f+diff,1f-diff);
+					IRSideFrontLeft.debug (Color.red);
+					return dir.left;
+				}
+			}
 		}
-		if(IRSideFrontRight.getDistance()>IRSideFrontLeft.getDistance ()+STRAIGHT_DIFF_MIN){
-			IRSideFrontLeft.debug(1);
-			servoControl (2f,2f-diff);
-			return dir.left;
+		//Also make sure we don't get too close
+		/*if(IRSideFrontRight.getDistance()<TOO_CLOSE){
+			print ("right is too close");
+			servoControl (1.5f,2f);
 		}
-		
+		else if(IRSideFrontLeft.getDistance()<TOO_CLOSE){
+			print ("left is too close");
+			servoControl (2f,1.5f);
+		}*/
 		return dir.straight;
 	}
 	dir checkTurn(){
 		const float TURN_IR_DIFF_MIN = 3f;
 		const float TURN_IR_STRAIGHT_MIN = 15f;
-		IRRightFront.debug(TURN_IR_STRAIGHT_MIN);
-		IRLeftFront.debug(TURN_IR_STRAIGHT_MIN);
 		if(IRRightFront.getDistance()<TURN_IR_STRAIGHT_MIN && IRLeftFront.getDistance()<TURN_IR_STRAIGHT_MIN){
 			if(IRRightFront.getDistance()<IRLeftFront.getDistance()+TURN_IR_DIFF_MIN){
 				return dir.right;
 			}
 			else if(IRLeftFront.getDistance()<IRRightFront.getDistance()+TURN_IR_DIFF_MIN){
-				
 				return dir.left;
 			}
 		}
@@ -202,7 +229,7 @@ public class Navigation : MonoBehaviour {
 	 * but if we are Parallel to the side, it's okay to be close
 	 * output: if the side should be turning*/
 	bool checkSideDir(dir d){
-		const float SIDE_IR_MIN = 5;
+		const float SIDE_IR_MIN = 3;
 		switch(d){
 		case dir.right:
 			if(!checkParallel(dir.right)&&IRSideBackRight.getDistance()<SIDE_IR_MIN && IRSideFrontRight.getDistance()<SIDE_IR_MIN)
@@ -217,8 +244,23 @@ public class Navigation : MonoBehaviour {
 	}
 	
 	void servoControl(float left, float right){
+		if(left<0)
+			left = 0;
+		else if(left>2f)
+			left =2f;
+		if(right<0)
+			right = 0;
+		else if(right>2f)
+			right = 2f;
+		
 		left = left*10;
 		right = right*10;
+		if(Input.GetButton("Horizontal")){
+			transform.rigidbody.velocity = Vector3.zero;
+			transform.rigidbody.angularVelocity = Vector3.zero;
+			return;
+		}
+		
 		Transform childT = transform.FindChild ("left_front_wheel");
 		transform.gameObject.rigidbody.AddForceAtPosition(transform.forward * left,childT.position);
 		
@@ -255,20 +297,31 @@ public class Navigation : MonoBehaviour {
 
 class IR
 {
+	RaycastHit[] hits;
 	Transform transform;
+	float dist;
 	public IR(Transform tran){
 		transform = tran;
 	}
 	public float getDistance(){
-		RaycastHit[] hits;
-		hits = Physics.RaycastAll(transform.position,transform.forward);
-		debug (99999);
-		if (hits.Length>0)
-			return hits[0].distance;
-		return 99999;
+		
+		return dist;
 	}
-	public void debug(float distance){
+	public void updateDistance(){
+		RaycastHit hit;
+		if (Physics.Raycast(transform.position,transform.forward,out hit,100)){
+			dist = hit.distance;			
+		}
+		else{
+			dist = 9999;
+		}
+	}
+	public void debug(float distance,Color col){
 		Vector3 line = transform.position + ( transform.forward * distance );
-		Debug.DrawLine(transform.position, line, Color.red);
+		Debug.DrawLine(transform.position, line, col);
+	}
+		public void debug(Color col){
+		Vector3 line = transform.position + ( transform.forward * dist );
+		Debug.DrawLine(transform.position, line, col);
 	}
 }
