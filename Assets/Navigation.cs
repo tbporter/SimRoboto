@@ -11,7 +11,15 @@ public class Navigation : MonoBehaviour {
 	private IR IRSideFrontRight;
 	private IR IRSideBackLeft;
 	private IR IRSideBackRight;
+	private Encoder LeftEncoder;
+	private Encoder RightEncoder;
 	
+	private float[] leftMem;
+	private float[] rightMem;
+	
+	private float[] turns;
+	
+	private float corner;
 	enum state{
 		straight,
 		side,
@@ -35,6 +43,12 @@ public class Navigation : MonoBehaviour {
 		IRSideBackLeft = new IR(transform.FindChild("left_side_back_IR"));
 		IRSideBackRight= new IR(transform.FindChild("right_side_back_IR"));
 		
+		leftMem = new float[1000];
+		rightMem = new float[1000];
+		
+		LeftEncoder = new Encoder(transform.FindChild ("left_front_wheel"));
+		RightEncoder = new Encoder(transform.FindChild ("right_front_wheel"));
+		
 		curState = state.straight;
 		curDir = dir.straight;
 		hori = 0;
@@ -47,9 +61,13 @@ public class Navigation : MonoBehaviour {
 		IRSideFrontRight.updateDistance();
 		IRSideBackLeft.updateDistance();
 		IRSideBackRight.updateDistance();
+		LeftEncoder.update ();
+		RightEncoder.update ();
 	}
 	void FixedUpdate () {
-		
+		leftMem[(int)LeftEncoder.getDistance()]=IRSideFrontLeft.getDistance();
+		rightMem[(int)RightEncoder.getDistance ()]=IRSideFrontRight.getDistance();
+		print (RightEncoder.getDistance());
 		stateMachine ();
 	}
 	
@@ -59,14 +77,14 @@ public class Navigation : MonoBehaviour {
 		//print(curState);
 		switch(curState){
 		case state.straight:
-			/*
-			tempDir = checkSide();
 			
-			if(tempDir!=dir.straight){
-				curDir = tempDir;
-				curState = state.side;
-				break;
-			}
+//			tempDir = checkSide();
+//			
+//			if(tempDir!=dir.straight){
+//				curDir = tempDir;
+//				curState = state.side;
+//				break;
+//			}
 			
 			tempDir = checkTurn();
 			if(tempDir!=dir.straight){
@@ -74,14 +92,16 @@ public class Navigation : MonoBehaviour {
 				curState = state.turn;
 				break;
 			}
-			*/
+			
 			
 			tempDir = checkStraight();
 			switch(tempDir){
 			case dir.right:
+				IRSideFrontRight.debug (Color.red);
 				//servoControl (1.85f,2f);
 				break;
 			case dir.left:
+				IRSideFrontLeft.debug (Color.red);
 				//servoControl (2f,1.85f);
 				break;
 			case dir.straight:
@@ -98,12 +118,12 @@ public class Navigation : MonoBehaviour {
 			case dir.right:
 				IRLeftFront.debug (Color.red);
 				IRRightFront.debug (Color.red);
-				servoControl (1f,2f);
+				//servoControl (1f,2f);
 				break;
 			case dir.left:
 				IRLeftFront.debug (Color.red);
 				IRRightFront.debug (Color.red);
-				servoControl (2f,1f);
+				//servoControl (2f,1f);
 				break;
 			case dir.straight:
 				curDir = tempDir;
@@ -154,58 +174,16 @@ public class Navigation : MonoBehaviour {
 			return true;
 	}
 	
-	/*dir checkStraight(){
-		float STRAIGHT_DIFF_MIN = 0f;
-		const float TOO_CLOSE = 2f;
-		if(IRSideFrontRight.getDistance()>999||IRSideFrontLeft.getDistance()>999){
-			return dir.straight;
-		}
-		float diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideFrontLeft.getDistance());
-		//IRSideFrontLeft.debug (Color.red);
-		//IRSideFrontRight.debug (Color.red);
-		//if the difference is too much, try to recenter
-		print(diff);
-		if(diff>1.5f){
-			diff = diff *.3f;
-			if(IRSideFrontLeft.getDistance()>IRSideFrontRight.getDistance())
-			{
-				//if(!checkParallel(dir.right)){
-					servoControl (1.9f,2f);
-					IRSideFrontRight.debug (Color.red);
-					return dir.right;
-				//}
-			}
-			if(IRSideFrontRight.getDistance()>IRSideFrontLeft.getDistance())//&&!checkParallel(dir.left))
-			{
-				//if(!checkParallel(dir.left)){
-					servoControl (2f,1.9f);
-					IRSideFrontLeft.debug (Color.red);
-					return dir.left;
-				//}
-			}
-		}
-		//Also make sure we don't get too close
-		/*if(IRSideFrontRight.getDistance()<TOO_CLOSE){
-			print ("right is too close");
-			servoControl (1.5f,2f);
-		}
-		else if(IRSideFrontLeft.getDistance()<TOO_CLOSE){
-			print ("left is too close");
-			servoControl (2f,1.5f);
-		}
-		return dir.straight;
-	}*/
-	
 	dir checkStraight(){
 
 		float front_diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideFrontLeft.getDistance());
 		float left_side_diff= Mathf.Abs(IRSideFrontLeft.getDistance()-IRSideBackLeft.getDistance());
 		float right_side_diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideBackRight.getDistance());
-		if(front_diff>1f){
+		/*if(front_diff>1f){
 			if(IRSideFrontRight.getDistance ()>IRSideFrontLeft.getDistance ()){
 				if(right_side_diff>.04f){
 					print ("right side");
-					servoControl (2f,1.85f);
+					servoControl (2f,1.5f);
 					return dir.left;
 				}
 				
@@ -214,14 +192,30 @@ public class Navigation : MonoBehaviour {
 				if(left_side_diff>.04f){
 					
 					print ("left side");
-					servoControl (1.85f,2f);
+					servoControl (1.5f,2f);
 					return dir.right;
 				}
 
 			}
+		}*/
+		if(IRSideFrontLeft.getDistance()<5){
+			if(IRSideFrontLeft.getDistance()<4){
+				servoControl (0f,-2f);
+				return dir.left;
+			}
+			servoControl (2f,1.5f);
+			return dir.left;
+		}
+		else if(IRSideFrontRight.getDistance()<5) {
+			if(IRSideFrontRight.getDistance()<4){
+				servoControl (-2f,0f);
+				return dir.right;
+			}
+			servoControl (1.5f,2f);
+			return dir.right;
 		}
 		
-		if(IRSideFrontRight.getDistance ()>IRSideFrontLeft.getDistance ()){
+		else if(IRSideFrontRight.getDistance ()>IRSideFrontLeft.getDistance ()){
 			print ("lean to right");
 			servoControl (2f,1.98f);
 		}
@@ -236,13 +230,23 @@ public class Navigation : MonoBehaviour {
 	
 	
 	dir checkTurn(){
-		const float TURN_IR_DIFF_MIN = 3f;
+		const float TURN_IR_DIFF_MIN = 2f;
 		const float TURN_IR_STRAIGHT_MIN = 15f;
 		if(IRRightFront.getDistance()<TURN_IR_STRAIGHT_MIN && IRLeftFront.getDistance()<TURN_IR_STRAIGHT_MIN){
-			if(IRRightFront.getDistance()<IRLeftFront.getDistance()+TURN_IR_DIFF_MIN){
+			if(IRRightFront.getDistance()<IRLeftFront.getDistance()-TURN_IR_DIFF_MIN){
+				servoControl (1f,2f);
 				return dir.right;
 			}
-			else if(IRLeftFront.getDistance()<IRRightFront.getDistance()+TURN_IR_DIFF_MIN){
+			else if(IRLeftFront.getDistance()<IRRightFront.getDistance()-TURN_IR_DIFF_MIN){
+				servoControl (2f,1f);
+				return dir.left;
+			}
+			else if(IRSideBackLeft.getDistance()>10f && IRSideBackRight.getDistance()<5f){
+				servoControl (0f,2f);
+				return dir.right;
+			}
+			else if(IRSideBackRight.getDistance()>10f && IRSideBackLeft.getDistance()<5f){
+				servoControl (2f,0f);
 				return dir.left;
 			}
 		}
@@ -285,13 +289,11 @@ public class Navigation : MonoBehaviour {
 	}
 	
 	void servoControl(float left, float right){
-		if(left<0)
-			left = 0;
-		else if(left>2f)
+
+		if(left>2f)
 			left =2f;
-		if(right<0)
-			right = 0;
-		else if(right>2f)
+
+		if(right>2f)
 			right = 2f;
 		
 		left = left*5;
@@ -360,6 +362,9 @@ class IR
 			dist = 9999;
 		}
 	}
+	private float randomizeVal(float dist){
+		return dist + ((Random.value*2)-1);
+	}
 	public void debug(float distance,Color col){
 		Vector3 line = transform.position + ( transform.forward * distance );
 		Debug.DrawLine(transform.position, line, col);
@@ -367,5 +372,25 @@ class IR
 		public void debug(Color col){
 		Vector3 line = transform.position + ( transform.forward * dist );
 		Debug.DrawLine(transform.position, line, col);
+	}
+}
+
+class Encoder{
+	
+	Vector3 prevPos;
+	float dist;
+	Transform transform;
+	public Encoder(Transform tran){
+		transform = tran;
+	}
+	public void update(){
+		float temp = Vector3.Distance (transform.position, prevPos);
+		if(temp>1){
+			dist += temp;
+			prevPos = transform.position;
+		}
+	}
+	public float getDistance(){
+		return dist;
 	}
 }
