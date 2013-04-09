@@ -56,10 +56,10 @@ public class Navigation : MonoBehaviour {
 	
 	void stateMachine(){
 		dir tempDir;
-		print(curState);
+		//print(curState);
 		switch(curState){
 		case state.straight:
-			
+			/*
 			tempDir = checkSide();
 			
 			if(tempDir!=dir.straight){
@@ -74,7 +74,7 @@ public class Navigation : MonoBehaviour {
 				curState = state.turn;
 				break;
 			}
-			
+			*/
 			
 			tempDir = checkStraight();
 			switch(tempDir){
@@ -85,7 +85,7 @@ public class Navigation : MonoBehaviour {
 				//servoControl (2f,1.85f);
 				break;
 			case dir.straight:
-				servoControl (2f,2f);
+				//servoControl (2f,2f);
 				break;
 			}
 			
@@ -154,33 +154,34 @@ public class Navigation : MonoBehaviour {
 			return true;
 	}
 	
-	dir checkStraight(){
+	/*dir checkStraight(){
 		float STRAIGHT_DIFF_MIN = 0f;
 		const float TOO_CLOSE = 2f;
 		if(IRSideFrontRight.getDistance()>999||IRSideFrontLeft.getDistance()>999){
 			return dir.straight;
 		}
 		float diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideFrontLeft.getDistance());
-		
+		//IRSideFrontLeft.debug (Color.red);
+		//IRSideFrontRight.debug (Color.red);
 		//if the difference is too much, try to recenter
 		print(diff);
-		if(diff>1f){
+		if(diff>1.5f){
 			diff = diff *.3f;
 			if(IRSideFrontLeft.getDistance()>IRSideFrontRight.getDistance())
 			{
-				if(!checkParallel(dir.right)){
-					servoControl (1f-diff,1f+diff);
+				//if(!checkParallel(dir.right)){
+					servoControl (1.9f,2f);
 					IRSideFrontRight.debug (Color.red);
 					return dir.right;
-				}
+				//}
 			}
-			if(IRSideFrontRight.getDistance()>IRSideFrontLeft.getDistance()&&!checkParallel(dir.left))
+			if(IRSideFrontRight.getDistance()>IRSideFrontLeft.getDistance())//&&!checkParallel(dir.left))
 			{
-				if(!checkParallel(dir.left)){
-					servoControl (1f+diff,1f-diff);
+				//if(!checkParallel(dir.left)){
+					servoControl (2f,1.9f);
 					IRSideFrontLeft.debug (Color.red);
 					return dir.left;
-				}
+				//}
 			}
 		}
 		//Also make sure we don't get too close
@@ -191,9 +192,49 @@ public class Navigation : MonoBehaviour {
 		else if(IRSideFrontLeft.getDistance()<TOO_CLOSE){
 			print ("left is too close");
 			servoControl (2f,1.5f);
-		}*/
+		}
 		return dir.straight;
+	}*/
+	
+	dir checkStraight(){
+
+		float front_diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideFrontLeft.getDistance());
+		float left_side_diff= Mathf.Abs(IRSideFrontLeft.getDistance()-IRSideBackLeft.getDistance());
+		float right_side_diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideBackRight.getDistance());
+		if(front_diff>1f){
+			if(IRSideFrontRight.getDistance ()>IRSideFrontLeft.getDistance ()){
+				if(right_side_diff>.04f){
+					print ("right side");
+					servoControl (2f,1.85f);
+					return dir.left;
+				}
+				
+			}
+			else{
+				if(left_side_diff>.04f){
+					
+					print ("left side");
+					servoControl (1.85f,2f);
+					return dir.right;
+				}
+
+			}
+		}
+		
+		if(IRSideFrontRight.getDistance ()>IRSideFrontLeft.getDistance ()){
+			print ("lean to right");
+			servoControl (2f,1.98f);
+		}
+		else{
+			print ("lean to left");
+			servoControl (1.98f,2f);
+		}
+		return dir.straight;
+	
 	}
+	
+	
+	
 	dir checkTurn(){
 		const float TURN_IR_DIFF_MIN = 3f;
 		const float TURN_IR_STRAIGHT_MIN = 15f;
@@ -253,8 +294,8 @@ public class Navigation : MonoBehaviour {
 		else if(right>2f)
 			right = 2f;
 		
-		left = left*10;
-		right = right*10;
+		left = left*5;
+		right = right*5;
 		if(Input.GetButton("Horizontal")){
 			transform.rigidbody.velocity = Vector3.zero;
 			transform.rigidbody.angularVelocity = Vector3.zero;
@@ -263,8 +304,11 @@ public class Navigation : MonoBehaviour {
 		
 		Transform childT = transform.FindChild ("left_front_wheel");
 		transform.gameObject.rigidbody.AddForceAtPosition(transform.forward * left,childT.position);
-		
+		childT = transform.FindChild ("left_back_wheel");
+		transform.gameObject.rigidbody.AddForceAtPosition(transform.forward * left,childT.position);
 		childT = transform.FindChild ("right_front_wheel");
+		transform.gameObject.rigidbody.AddForceAtPosition(transform.forward * right,childT.position);
+		childT = transform.FindChild ("right_back_wheel");
 		transform.gameObject.rigidbody.AddForceAtPosition(transform.forward * right,childT.position);
 		
 	}
