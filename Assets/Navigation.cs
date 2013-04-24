@@ -1,7 +1,9 @@
 using UnityEngine;
 using System.Collections;
 
+
 public class Navigation : MonoBehaviour {
+	private const float  dc = 999999;
 	
 	private float hori;
 	private float vert;
@@ -36,7 +38,8 @@ public class Navigation : MonoBehaviour {
 	enum state{
 		straight,
 		side,
-		turn
+		turn,
+		ninety
 	};
 	
 	enum dir{
@@ -90,25 +93,17 @@ public class Navigation : MonoBehaviour {
 	void stateMachine(){
 		dir tempDir;
 		//print(curState);
+
 		switch(curState){
 		case state.straight:
-			
-//			tempDir = checkSide();
-//			
-//			if(tempDir!=dir.straight){
-//				curDir = tempDir;
-//				curState = state.side;
-//				break;
-//			}
-			
-			tempDir = checkTurn();
-			if(tempDir!=dir.straight){
-				curDir = tempDir;
-				curState = state.turn;
+			if(chkDist (dc,dc,6f,6f,dc,dc)){
+				if(IRSideFrontRight.getDistance () > IRSideFrontLeft.getDistance ())
+					curDir = dir.right;
+				else
+					curDir = dir.left;
+				curState = state.ninety;
 				break;
 			}
-			
-			
 			tempDir = checkStraight();
 			switch(tempDir){
 			case dir.right:
@@ -125,58 +120,61 @@ public class Navigation : MonoBehaviour {
 			}
 			
 			break;
-			
-		case state.turn:
-			tempDir = checkTurn();
-			
-			switch(tempDir){
+		case state.ninety:
+			curDir = checkNinety ();
+			switch(curDir){
 			case dir.right:
-				IRLeftFront.debug (Color.red);
-				IRRightFront.debug (Color.red);
-				//servoControl (1f,2f);
+				servoControl (1f,-.5f);
+				print ("turning to right");
 				break;
 			case dir.left:
-				IRLeftFront.debug (Color.red);
-				IRRightFront.debug (Color.red);
-				//servoControl (2f,1f);
+				servoControl (-.5f,1f);
+				print ("turning to left");
 				break;
 			case dir.straight:
-				curDir = tempDir;
 				curState = state.straight;
 				break;
 			}
+			
 			
 			break;
 		}
 	}
 	
+	dir checkNinety(){
+		if(chkDist (dc,dc,8f,8f,dc,dc)){
+			return curDir;
+		}
+		return dir.straight;
+	}
+	
 	dir checkStraight(){
 
 		float front_diff= Mathf.Abs(IRSideFrontRight.getDistance()-IRSideFrontLeft.getDistance());
-		
-		if(IRSideFrontLeft.getDistance()<5 & front_diff>1){
-			if(IRSideFrontLeft.getDistance()<4){
+
+		if(chkDist(2.5f,dc,dc,dc,dc,dc)){
 				servoControl (0f,-2f);
 				return dir.left;
-			}
+		}
+		else if(chkDist(dc,2.5f,dc,dc,dc,dc)){
+				servoControl (-2f,0f);
+				return dir.right;
+		}
+		else if(chkDist(5f,dc,dc,dc,dc,dc) & front_diff>1.3){
+			print ("going to right");
 			servoControl (2f,1.5f);
 			return dir.left;
 		}
-		else if(IRSideFrontRight.getDistance()<5 & front_diff>1) {
-			if(IRSideFrontRight.getDistance()<4){
-				servoControl (-2f,0f);
-				return dir.right;
-			}
+		else if(chkDist(dc,5f,dc,dc,dc,dc) & front_diff>1.3) {
 			servoControl (1.5f,2f);
+			print ("going to left");
 			return dir.right;
 		}
 		
-		else if(IRSideFrontRight.getDistance ()>IRSideFrontLeft.getDistance ()){
-			print ("lean to right");
+		else if(IRSideFrontRight.getDistance()>IRSideFrontLeft.getDistance ()){
 			servoControl (2f,1.98f);
 		}
-		else if(IRSideFrontRight.getDistance ()<IRSideFrontLeft.getDistance ()){
-			print ("lean to left");
+		else if(IRSideFrontRight.getDistance()<IRSideFrontLeft.getDistance ()){
 			servoControl (1.98f,2f);
 		}else{
 			servoControl (2f,2f);
@@ -185,30 +183,15 @@ public class Navigation : MonoBehaviour {
 	
 	}
 	
-	
-	
-	dir checkTurn(){
-		const float TURN_IR_DIFF_MIN = 2f;
-		const float TURN_IR_STRAIGHT_MIN = 15f;
-		if(IRRightFront.getDistance()<TURN_IR_STRAIGHT_MIN && IRLeftFront.getDistance()<TURN_IR_STRAIGHT_MIN){
-			if(IRRightFront.getDistance()<IRLeftFront.getDistance()-TURN_IR_DIFF_MIN){
-				servoControl (1f,2f);
-				return dir.right;
-			}
-			else if(IRLeftFront.getDistance()<IRRightFront.getDistance()-TURN_IR_DIFF_MIN){
-				servoControl (2f,1f);
-				return dir.left;
-			}
-			else if(IRSideBackLeft.getDistance()>10f && IRSideBackRight.getDistance()<5f){
-				servoControl (0f,2f);
-				return dir.right;
-			}
-			else if(IRSideBackRight.getDistance()>10f && IRSideBackLeft.getDistance()<5f){
-				servoControl (2f,0f);
-				return dir.left;
-			}
-		}
-		return dir.straight;
+	bool chkDist( float left, float right, float front_left, float front_right, float side_left, float side_right){
+		bool l,r,fl,fr,sl,sr;
+		l = IRSideFrontLeft.getDistance()<left;
+		r = IRSideFrontRight.getDistance()<right;
+		fl = IRLeftFront.getDistance()<front_left;
+		fr = IRRightFront.getDistance()<front_right;
+		sl = IRSideBackLeft.getDistance()<side_left;
+		sr = IRSideBackRight.getDistance()<side_right;
+		return l & r & fl & fr & sl & sr;
 	}
 
 	
@@ -298,7 +281,8 @@ class IR
 		transform = tran;
 	}
 	public float getDistance(){
-		
+		if(dist == 0)
+			dist = 9999;
 		return dist;
 	}
 	public void updateDistance(){
