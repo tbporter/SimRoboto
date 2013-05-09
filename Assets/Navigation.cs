@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections;
-
+using System.IO;
 
 public class Navigation : MonoBehaviour {
 	private const float  dc = 999999;
@@ -81,10 +81,14 @@ public class Navigation : MonoBehaviour {
 	}
 	void FixedUpdate () {
 		int temp = (int)RightEncoder.getDistance ();
-		mem[temp].IRLeft = IRSideFrontLeft.getDistance();
-		mem[temp].IRRight = IRSideFrontRight.getDistance();
-		mem[temp].dir =  transform.forward;
-		lastMem = temp;
+		//mem[temp].IRLeft = IRSideFrontLeft.getDistance();
+		//mem[temp].IRRight = IRSideFrontRight.getDistance();
+		//mem[temp].dir =  transform.forward;
+		//mem[temp].dir = transform.eulerAngles;
+		//print (transform.forward);
+		//print (transform.eulerAngles);
+		
+		//lastMem = temp;
 		stateMachine ();
 		UserControl();
 	}
@@ -228,23 +232,65 @@ public class Navigation : MonoBehaviour {
 			printMemory ();
 			hori = 1;
 		}
+		if(vert==0 && Input.GetButton ("Vertical")){
+			getMemoryFromFile ();
+			vert = 1;
+		}
 		else
-			hori = 0;
-		
+			vert = 0;
 	}
-	
+	float distSample;
+	float scaler = .5f;
+	void getMemoryFromFile(){
+		string[] allLines = File.ReadAllLines(@"E:\RobotoMem.txt");
+		int count = -1;
+    		//var query = from line in allLines
+        foreach (string line in allLines){
+			if(count==-1){
+				distSample = float.Parse (line);
+				count++;
+			}
+			else{
+			
+			string[] data = line.Split(',');
+			count++;
+			mem[count].dir = new Vector3(0,float.Parse(data[0]),0);
+			mem[count].IRLeft = float.Parse(data[1]);
+			mem[count].IRRight = float.Parse(data[2]);
+			//if(mem[count].IRLeft>50) 
+			//	mem[count].IRLeft=99999;
+			//else
+				mem[count].IRLeft = mem[count].IRLeft*scaler;
+				
+			//if(mem[count].IRRight>50) 
+			//	mem[count].IRRight=99999;
+			//else
+				mem[count].IRRight = mem[count].IRRight*scaler;
+						
+			//print (mem[count].dir);
+			}
+		}
+		lastMem = count;
+	}
 	void printMemory(){
 		GameObject robot =  GameObject.CreatePrimitive(PrimitiveType.Cube);
 		robot.transform.position = new Vector3(27.90829f, 7.128446f, -25.02266f);
 		int i = 1;
 		print ("print Memory");
 		while(i<lastMem){
-			robot.transform.forward = mem[i].dir;
-			
+			robot.transform.eulerAngles = mem[i].dir;
+			//robot.transform.Rotate (mem[i].dir);
 			Destroy(memObj[i].robot); 
 			memObj[i].robot = GameObject.CreatePrimitive(PrimitiveType.Cube);
 			memObj[i].robot.transform.position = robot.transform.position;
 			memObj[i].robot.transform.renderer.material.SetColor ("_Color", Color.green);
+			
+			if(i!=1){
+	        	var lr = memObj[i].robot.AddComponent<LineRenderer>();
+				lr.SetPosition(0, memObj[i-1].robot.transform.position);
+        		lr.SetPosition(1, memObj[i].robot.transform.position);
+			}
+			
 			
 			Destroy(memObj[i].left); 
 			memObj[i].left = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -253,6 +299,13 @@ public class Navigation : MonoBehaviour {
 			memObj[i].left.transform.renderer.material.SetColor ("_Color", Color.red);
 			memObj[i].left.transform.Rotate (Vector3.up*308.6562f);
 			memObj[i].left.transform.Translate (Vector3.forward * mem[i].IRLeft);
+
+			if(i!=1){
+	        	var lr = memObj[i].left.AddComponent<LineRenderer>();
+				lr.SetPosition(0, memObj[i-1].left.transform.position);
+        		lr.SetPosition(1, memObj[i].left.transform.position);
+			}
+			
 			
 			Destroy(memObj[i].right); 
 			memObj[i].right = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -262,7 +315,14 @@ public class Navigation : MonoBehaviour {
 			memObj[i].right.transform.Rotate (Vector3.up*51.43085f);
 			memObj[i].right.transform.Translate (Vector3.forward * mem[i].IRRight);
 			
-			robot.transform.Translate (Vector3.forward * 1);
+			if(i!=1){
+	        	var lr = memObj[i].right.AddComponent<LineRenderer>();
+				lr.SetPosition(0, memObj[i-1].right.transform.position);
+        		lr.SetPosition(1, memObj[i].right.transform.position);
+			}
+			
+			
+			robot.transform.Translate (Vector3.forward * distSample);
 			i++;
 		}
 		Destroy(robot);
